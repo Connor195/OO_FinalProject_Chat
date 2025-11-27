@@ -101,6 +101,9 @@ public class ChatHandler extends TextWebSocketHandler {
             case "MUTE_USER":
                 handleMuteUser(session, request);
                 break;
+            case "MSG_READ":
+                handleMsgRead(session, request);
+                break;
 
             default:
                 sendError(session, "未知指令: " + request.getAction());
@@ -200,10 +203,22 @@ public class ChatHandler extends TextWebSocketHandler {
             String toId = request.getParams().get("targetUser").asText(); // 可能是人名，也可能是群ID
             String content = request.getParams().get("content").asText();
             boolean isGroup = "SEND_GROUP".equals(request.getAction()); // 判断是私聊还是群聊
+            // --- 新增：解析 @ 用户列表 ---
+            java.util.List<String> atList = new java.util.ArrayList<>();
+            if (request.getParams().has("atUsers")) {
+                com.fasterxml.jackson.databind.JsonNode atNode = request.getParams().get("atUsers");
+                if (atNode.isArray()) {
+                    for (com.fasterxml.jackson.databind.JsonNode node : atNode) {
+                        atList.add(node.asText());
+                    }
+                }
+            }
+            // -------------------------
 
-            // 3. 调用 Service 构建消息对象 (这一步会生成时间戳和ID)
-            // (注意：这里的 isGroup 参数是根据 action 判断的)
-            com.example.chat.common.model.Message msgObj = messageService.processAndSaveMsg(fromUser, toId, content, isGroup);
+            // 3.调用 Service (这一步会生成时间戳和ID)
+            com.example.chat.common.model.Message msgObj = messageService.processAndSaveMsg(
+                    fromUser, toId, content, isGroup, atList
+            );
 
             // 4. 构造推送给前端的数据包
             WsResponse pushMsg = WsResponse.builder()
@@ -300,6 +315,53 @@ public class ChatHandler extends TextWebSocketHandler {
                 .build();
 
         sendJson(session, response);
+    }
+    /**
+     * 处理“已读”逻辑
+     * 前端只要看到消息出现在屏幕上，就发一个 MSG_READ 包过来
+     */
+    /**
+     * 处理“已读”逻辑
+     * (已修复：使用 Map 替代匿名内部类，解决字段引用报错)
+     */
+    private void handleMsgRead(WebSocketSession session, WsRequest request) {
+        // 1. 谁读了？
+        String reader = (String) session.getAttributes().get("username");
+        if (reader == null) return;
+
+        // 2. 读了哪条？
+        if (!request.getParams().has("msgId")) return;
+        String msgId = request.getParams().get("msgId").asText();
+
+        // 3. 找消息对象
+        com.example.chat.common.model.Message msg = DataCenter.MSG_HISTORY.get(msgId);
+        if (msg == null) return; // 消息可能太久远被清理了，忽略
+
+        // 4. 记录状态 (Set会自动去重)
+        // 如果已经记录过他读了，就不用再广播了
+        if (msg.getReadBy().contains(reader)) {
+            return;
+        }
+        msg.getReadBy().add(reader);
+
+        // 5. 通知发送者 ("你的消息被 xxx 读了")
+        String senderName = msg.getFromUser();
+        WebSocketSession senderSession = DataCenter.ONLINE_USERS.get(senderName);
+
+        if (senderSession != null && senderSession.isOpen()) {
+            // --- 修改点开始：使用 Map 封装数据 ---
+            java.util.Map<String, Object> readData = new java.util.HashMap<>();
+            readData.put("msgId", msg.getMsgId());
+            readData.put("reader", reader); // 这里 reader 指向局部变量，不会冲突
+            readData.put("readCount", msg.getReadBy().size());
+            // ----------------------------------
+
+            WsResponse resp = WsResponse.builder()
+                    .type("EVENT_MSG_READ")
+                    .data(readData) // 放入 Map
+                    .build();
+            sendJson(senderSession, resp);
+        }
     }
     /**
      * 管理员功能：踢人
