@@ -4,6 +4,8 @@ import com.example.chat.common.model.Message;
 import com.example.chat.service.MessageService;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class MessageServiceImpl implements MessageService {
     @Override

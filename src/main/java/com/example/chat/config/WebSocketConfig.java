@@ -19,6 +19,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
         // 核心：把 /chat 路径绑定到你的 Handler
         // setAllowedOrigins("*") 允许所有跨域，方便测试
         registry.addHandler(chatHandler, "/chat")
-                .setAllowedOrigins("*");
+                .setAllowedOrigins("*")
+                .addInterceptors(new AuthHandshakeInterceptor());
     }
 }
