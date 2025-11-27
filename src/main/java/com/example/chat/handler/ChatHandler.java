@@ -15,6 +15,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.io.IOException;
 import java.util.concurrent.Executor;
 
 /**
@@ -109,32 +110,67 @@ public class ChatHandler extends TextWebSocketHandler {
             System.out.println("用户下线: " + username);
         }
     }
+    /**
+     * 处理登录逻辑 (包含密码验证与顶号机制)
+     */
     private void handleLogin(WebSocketSession session, WsRequest request) {
-        // 1. 拿参数 (注意判空，这里假设前端传了 username)
-        if (!request.getParams().has("username")) {
-            sendError(session, "缺少 username 参数");
+        // 1. 参数校验
+        if (request.getParams() == null || !request.getParams().has("username")) {
+            sendError(session, "登录失败: 缺少 username 参数");
             return;
         }
+
+        // 提取参数
         String username = request.getParams().get("username").asText();
-        String avatar = request.getParams().has("avatar") ? request.getParams().get("avatar").asText() : "";
+        // 如果前端没传密码，给一个默认空字符串，防止 Service 层空指针
+        String password = request.getParams().has("password")
+                ? request.getParams().get("password").asText()
+                : "";
 
-        // 2. 存入内存 (建立 username -> session 的映射)
-        DataCenter.ONLINE_USERS.put(username, session);
+        try {
+            // 2. 调用业务层 (UserService) 进行登录/注册
+            // 约定：如果密码错误，Service 层会抛出 IllegalArgumentException
+            // 约定：如果用户不存在，Service 层会自动注册并返回 User 对象
+            User user = userService.login(username, password);
 
-        // 可选：把 username 绑在 session 属性里，方便后面用
-        session.getAttributes().put("username", username);
+            // 3. 处理“顶号”逻辑 (如果该账号已经在别处登录)
+            WebSocketSession oldSession = DataCenter.ONLINE_USERS.get(username);
+            if (oldSession != null && oldSession.isOpen()) {
+                // 如果旧连接不是当前连接 (防止自己重连误踢)
+                if (!oldSession.getId().equals(session.getId())) {
+                    sendError(oldSession, "您的账号已在别处登录，您已被强制下线！");
+                    try {
+                        oldSession.close(); // 踢掉旧连接
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
 
-        // 3. 调用 Service (虽然现在是假的，但不影响流程)
-        User user = userService.login(username, avatar);
+            // 4. 绑定会话 (更新内存表)
+            DataCenter.ONLINE_USERS.put(username, session);
 
-        // 4. 告诉前端：登录成功
-        WsResponse response = WsResponse.builder()
-                .type("LOGIN_RESP")
-                .data(user)
-                .build();
-        sendJson(session, response);
+            // [关键] 将 username 存入 Session 的属性中
+            // 这样后续发送消息时，可以直接从 session.getAttributes() 拿到是谁发的，防止伪造身份
+            session.getAttributes().put("username", username);
 
-        System.out.println("用户登录成功: " + username);
+            // 5. 返回成功响应
+            WsResponse response = WsResponse.builder()
+                    .type("LOGIN_RESP")
+                    .data(user) // 返回用户信息(头像、好友列表等)给前端
+                    .build();
+            sendJson(session, response);
+
+            System.out.println("用户登录成功: " + username);
+
+        } catch (IllegalArgumentException e) {
+            // 捕获抛出的“密码错误”异常
+            sendError(session, "登录失败: " + e.getMessage());
+            System.out.println("登录失败(" + username + "): " + e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            sendError(session, "系统内部错误");
+        }
     }
     private void handleMessage(WebSocketSession session, WsRequest request) {
         try {
@@ -265,5 +301,20 @@ public class ChatHandler extends TextWebSocketHandler {
     private void sendError(WebSocketSession session, String errorMsg) {
         WsResponse response = WsResponse.error(errorMsg);
         sendJson(session, response);
+    }
+    private void handleLogout(WebSocketSession session) {
+        String username = (String) session.getAttributes().get("username");
+        if (username != null) {
+            // 1. 从在线列表移除
+            DataCenter.ONLINE_USERS.remove(username);
+            // 2. 告诉前端一声
+            sendJson(session, WsResponse.builder().type("LOGOUT_SUCCESS").build());
+            // 3. 关闭连接
+            try {
+                session.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

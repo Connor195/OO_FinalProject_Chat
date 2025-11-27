@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class User {
     private String username;
     private String avatar;
-
+    private String password;
     // 使用线程安全的 Set 存储好友和屏蔽列表
     private Set<String> friends = ConcurrentHashMap.newKeySet();
     private Set<String> blockList = ConcurrentHashMap.newKeySet();
