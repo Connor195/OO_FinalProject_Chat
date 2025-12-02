@@ -7,7 +7,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Data
 public class User {
+    private String userId;
     private String username;
+    private String gender;// man woman unknown?
+    private int age;
+
+
 
     //  加 @JsonIgnore，这样 User 对象发给前端时，password 字段会自动消失，防止泄露！
     @JsonIgnore
@@ -25,8 +30,11 @@ public class User {
     private Set<String> friends = ConcurrentHashMap.newKeySet();
     private Set<String> blockList = ConcurrentHashMap.newKeySet();
 
-    public User(String username) {
-        this.username = username;
+    // 记录用户名，表示谁向该用户申请加好友
+    private Set<String> friendRequests = ConcurrentHashMap.newKeySet();
+
+    public User(String userId) {
+        this.userId = userId;
     }
 
     // 辅助方法：是否是管理员
@@ -38,4 +46,6 @@ public class User {
     public boolean isMuted() {
         return System.currentTimeMillis() < this.muteEndTime;
     }
+
+
 }
