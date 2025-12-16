@@ -10,6 +10,7 @@ public interface UserService {
     User login(String userId, String password, WebSocketSession session);
     void logout(String userId);
     Group createGroup(String groupName, String owner, List<String> initialMembers);
+    boolean dissolveGroup(String groupId, String operator);
     void updateAvatar(String userId, String newAvatar);
     void updateUsername(String userId, String newUsername);
 

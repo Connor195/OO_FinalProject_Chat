@@ -11,4 +11,5 @@ public class Group {
     private String owner;
     // 线程安全的 List，适合读多写少
     private List<String> members = new CopyOnWriteArrayList<>();
+    private List<String> admins = new CopyOnWriteArrayList<>();
 }

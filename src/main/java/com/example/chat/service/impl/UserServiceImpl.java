@@ -91,6 +91,22 @@ public class UserServiceImpl implements UserService {
 
         return group;
     }
+
+    public boolean dissolveGroup(String groupId, String operator) {
+        if (groupId == null || operator == null) {
+            return false;
+        }
+        Group group = DataCenter.GROUPS.get(groupId);
+        if (group == null) {
+            return false;
+        }
+
+        if(!operator.equals(group.getOwner())) {
+            return false;
+        }
+        DataCenter.GROUPS.remove(groupId);
+        return true;
+    }
     @Override
     public void updateAvatar(String userId, String newAvatar) {
         User user = DataCenter.USERS.get(userId);
