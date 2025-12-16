@@ -5,35 +5,50 @@ import com.example.chat.common.model.User;
 import com.example.chat.repository.DataCenter;
 import com.example.chat.service.UserService;
 import org.springframework.stereotype.Service;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class UserServiceImpl implements UserService {
     @Override
-    public User login(String userId, String password) {
+    public User login(String userId, String password, WebSocketSession session) {
         User user = DataCenter.USERS.get(userId);
 
+        // ===== 1. 注册 or 校验密码 =====
         if (user == null) {
-            // 新用户注册
             user = new User(userId);
             user.setPassword(password);
 
-            // --- 核心修改: 钦定管理员 ---
-            if ("admin".equals(userId)) { // 这里可以改你自己喜欢的名字
+            // 钦定管理员
+            if ("admin".equals(userId)) {
                 user.setRole("ADMIN");
             }
-            // ------------------------
 
             DataCenter.USERS.put(userId, user);
-            return user;
         } else {
-            // 老用户验密... (略)
             if (!user.getPassword().equals(password)) {
                 throw new IllegalArgumentException("密码错误");
             }
-            return user;
         }
+
+        // ===== 2. 多端顶号 =====
+        WebSocketSession oldSession = DataCenter.ONLINE_USERS.get(userId);
+        if (oldSession != null && oldSession.isOpen()) {
+            try {
+                oldSession.sendMessage(
+                        new TextMessage("账号在别处登录，你已被下线")
+                );
+                oldSession.close();
+            } catch (Exception ignored) {}
+        }
+
+        // ===== 3. 记录新会话 =====
+        DataCenter.ONLINE_USERS.put(userId, session);
+
+        return user;
     }
     @Override
     public void logout(String userId) {
@@ -144,4 +159,39 @@ public class UserServiceImpl implements UserService {
 
         return to.getFriendRequests().remove(fromUser);
     }
+
+    @Override
+    public boolean kickUser(String adminId, String targetUserId) {
+        User admin = DataCenter.USERS.get(adminId);
+        if (admin == null || !admin.isAdmin()) {
+            throw new SecurityException("无权限操作");
+        }
+
+        WebSocketSession session = DataCenter.ONLINE_USERS.get(targetUserId);
+        if (session == null) return false;
+
+        try {
+            session.sendMessage(new TextMessage("你已被管理员踢下线"));
+            session.close();
+        } catch (Exception ignored) {}
+
+        DataCenter.ONLINE_USERS.remove(targetUserId);
+        return true;
+    }
+
+    @Override
+    public boolean muteUser(String adminId, String targetUserId, long durationMillis) {
+        User admin = DataCenter.USERS.get(adminId);
+        if (admin == null || !admin.isAdmin()) {
+            throw new SecurityException("无权限操作");
+        }
+
+        User target = DataCenter.USERS.get(targetUserId);
+        if (target == null) return false;
+
+        target.setMuteEndTime(System.currentTimeMillis() + durationMillis);
+        return true;
+    }
+
+
 }

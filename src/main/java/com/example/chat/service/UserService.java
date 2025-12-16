@@ -2,10 +2,12 @@ package com.example.chat.service;
 
 import com.example.chat.common.model.User;
 import com.example.chat.common.model.Group;
+import org.springframework.web.socket.WebSocketSession;
+
 import java.util.List;
 
 public interface UserService {
-    User login(String userId, String avatar);
+    User login(String userId, String password, WebSocketSession session);
     void logout(String userId);
     Group createGroup(String groupName, String owner, List<String> initialMembers);
     void updateAvatar(String userId, String newAvatar);
@@ -18,4 +20,9 @@ public interface UserService {
     boolean acceptFriendRequest(String fromUser, String toUser);
 
     boolean rejectFriendRequest(String fromUser, String toUser);
+
+    boolean kickUser(String adminId, String targetUserId);
+
+    boolean muteUser(String adminId, String targetUserId, long durationMillis);
+
 }
