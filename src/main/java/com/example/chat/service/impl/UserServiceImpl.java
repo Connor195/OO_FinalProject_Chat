@@ -91,7 +91,40 @@ public class UserServiceImpl implements UserService {
 
         return group;
     }
-
+    @Override
+    public boolean setGroupAdmin(String operator, String groupId, String targetUser) {
+        if (groupId == null || groupId.isEmpty()) {
+            return false;
+        }
+        Group group = DataCenter.GROUPS.get(groupId);
+        if (group == null) {
+            return false;
+        }
+        if(!group.getOwner().equals(operator)) {
+            return false;
+        }
+        if(!group.getMembers().contains(targetUser)) {
+            return false;
+        }
+        group.getAdmins().add(targetUser);
+        return true;
+    }
+    @Override
+    public boolean removeGroupAdmin(String operator, String groupId, String targetUser) {
+        if (groupId == null || groupId.isEmpty()) {
+            return false;
+        }
+        Group group = DataCenter.GROUPS.get(groupId);
+        if (group == null) {
+            return false;
+        }
+        if(!group.getOwner().equals(operator)) {
+            return false;
+        }
+        group.getAdmins().remove(targetUser);
+        return true;
+    }
+    @Override
     public boolean dissolveGroup(String groupId, String operator) {
         if (groupId == null || operator == null) {
             return false;
