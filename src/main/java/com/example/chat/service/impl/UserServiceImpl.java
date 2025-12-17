@@ -56,6 +56,7 @@ public class UserServiceImpl implements UserService {
             DataCenter.ONLINE_USERS.remove(userId);
         }
     }
+
     @Override
     public Group createGroup(String groupName, String owner, List<String> initialMembers) {
         if (groupName == null || groupName.isEmpty()) {
@@ -157,6 +158,7 @@ public class UserServiceImpl implements UserService {
         DataCenter.GROUPS.remove(groupId);
         return true;
     }
+
     @Override
     public void updateAvatar(String userId, String newAvatar) {
         User user = DataCenter.USERS.get(userId);
@@ -226,6 +228,7 @@ public class UserServiceImpl implements UserService {
         return to.getFriendRequests().remove(fromUser);
     }
     @Override
+
     public boolean kickUser(String adminId, String targetUserId) {
         User admin = DataCenter.USERS.get(adminId);
         if (admin == null || !admin.isAdmin()) {

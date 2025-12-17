@@ -20,4 +20,14 @@ public class Group {
     public boolean isAdmin(String userId) {
         return isOwner(userId) || admins.contains(userId);
     }
+
+    public List<String> getMembers() {
+        return members;
+    }
+
+    public List<String> getAdmins() {
+        return admins;
+    }
+
+
 }
