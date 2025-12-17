@@ -92,6 +92,23 @@ public class UserServiceImpl implements UserService {
         return group;
     }
     @Override
+    public boolean updateGroupName(String groupId, String operator, String newGroupName) {
+        if (groupId == null || operator == null) return false;
+        if (newGroupName == null || newGroupName.trim().isEmpty()) {
+            throw new IllegalArgumentException("群名称不能为空");
+        }
+
+        Group group = DataCenter.GROUPS.get(groupId);
+        if (group == null) return false;
+
+        if (!operator.equals(group.getOwner())) {
+            throw new SecurityException("只有群主可以修改群名称");
+        }
+
+        group.setGroupName(newGroupName.trim());
+        return true;
+    }
+    @Override
     public boolean setGroupAdmin(String operator, String groupId, String targetUser) {
         if (groupId == null || groupId.isEmpty()) {
             return false;
@@ -208,7 +225,6 @@ public class UserServiceImpl implements UserService {
 
         return to.getFriendRequests().remove(fromUser);
     }
-
     @Override
     public boolean kickUser(String adminId, String targetUserId) {
         User admin = DataCenter.USERS.get(adminId);
@@ -227,7 +243,6 @@ public class UserServiceImpl implements UserService {
         DataCenter.ONLINE_USERS.remove(targetUserId);
         return true;
     }
-
     @Override
     public boolean muteUser(String adminId, String targetUserId, long durationMillis) {
         User admin = DataCenter.USERS.get(adminId);

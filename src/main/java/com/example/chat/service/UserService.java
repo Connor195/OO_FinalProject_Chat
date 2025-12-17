@@ -17,6 +17,7 @@ public interface UserService {
 
     void updateAvatar(String userId, String newAvatar);
     void updateUsername(String userId, String newUsername);
+    boolean updateGroupName(String groupId, String operator,String newGroupName);
     // 发送好友申请
     boolean sendFriendRequest(String fromUser, String toUser);
     // 接受好友申请
