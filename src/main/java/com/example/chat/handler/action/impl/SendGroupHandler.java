@@ -26,6 +26,15 @@ public class SendGroupHandler extends BaseActionHandler {
     
     @Autowired
     private ObjectMapper objectMapper;
+
+    // setters
+    public void setMessageService(MessageService messageService) {
+        this.messageService = messageService;
+    }
+    
+    public void setObjectMapper(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
     
     @Override
     public void handle(WebSocketSession session, WsRequest request) {
