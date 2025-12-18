@@ -19,7 +19,7 @@ import java.util.List;
  * 发送私聊消息处理器
  */
 @Component
-public class SendPrivateHandler extends BaseActionHandler {
+public class Send_PrivateHandler extends BaseActionHandler {
     
     @Autowired
     private MessageService messageService;

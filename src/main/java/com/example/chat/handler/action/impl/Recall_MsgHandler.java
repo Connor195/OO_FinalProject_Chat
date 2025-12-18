@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 撤回时间限制：2分钟
  */
 @Component
-public class RecallMsgHandler extends BaseActionHandler {
+public class Recall_MsgHandler extends BaseActionHandler {
     
     @Autowired
     private MessageService messageService;
@@ -173,7 +173,7 @@ public class RecallMsgHandler extends BaseActionHandler {
             String eventJson = objectMapper.writeValueAsString(event);
             
             // 确定广播范围
-            Set<String> receivers = determineRecallEventReceivers(recalledMessage);
+            Set<String> receivers = determineRecallEventReceivers(recalledMessage, operator);
             
             // 广播给相关用户
             for (String receiver : receivers) {
@@ -197,15 +197,14 @@ public class RecallMsgHandler extends BaseActionHandler {
     
     /**
      * 确定需要接收撤回事件通知的用户
+     * @param recalledMessage 被撤回的消息
+     * @param operator 撤回操作者（当前用户）
      */
-    private Set<String> determineRecallEventReceivers(Message recalledMessage) {
+    private Set<String> determineRecallEventReceivers(Message recalledMessage, String operator) {
         Set<String> receivers = ConcurrentHashMap.newKeySet();
         
-        // 总是包括操作者自己
-        // receivers.add(operator); // 注意：这里operator已经通过成功响应知道了
-        
         // 包括消息的发送者（如果发送者不是操作者）
-        if (!recalledMessage.getFromUser().equals(getCurrentUser(null))) {
+        if (!recalledMessage.getFromUser().equals(operator)) {
             receivers.add(recalledMessage.getFromUser());
         }
         
@@ -221,11 +220,8 @@ public class RecallMsgHandler extends BaseActionHandler {
             receivers.add(recalledMessage.getToUser());
         }
         
-        // 移除当前用户（避免重复通知，因为操作者已经通过成功响应知道了）
-        String currentUser = getCurrentUser(null);
-        if (currentUser != null) {
-            receivers.remove(currentUser);
-        }
+        // 移除操作者（避免重复通知，因为操作者已经通过成功响应知道了）
+        receivers.remove(operator);
         
         // 确保接收者在线
         receivers.removeIf(user -> !DataCenter.ONLINE_USERS.containsKey(user));
